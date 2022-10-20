@@ -1,0 +1,14 @@
+
+.DS_Store
+.mvn/
+logs/
+del/
+mvnw*
+*.yaml
+healthcare-booking/del
+**/node_modules/
+**package-lock.json
+**.idea/
+*.code-workspace
+**/target/
+healthcare-search/offers-tv.json
