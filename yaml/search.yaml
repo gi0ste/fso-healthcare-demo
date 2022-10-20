@@ -1,0 +1,90 @@
+##################################################################################################
+# Search service
+##################################################################################################
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: null
+  labels:
+    app: search
+    version: "1"
+  name: search
+spec:
+  ports:
+  - port: 5051
+    protocol: TCP
+    targetPort: 5051
+  selector:
+    app: search
+    version: "1"
+  type: LoadBalancer
+
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hc-search-java-config
+data:
+    APPDYNAMICS_AGENT_APPLICATION_NAME: "Healthcare"
+    APPDYNAMICS_AGENT_ACCOUNT_NAME: "APPD_ACCOUNT_NAME"
+    APPDYNAMICS_CONTROLLER_HOST_NAME: "APPD_CONTROLLER_NAME.saas.appdynamics.com"
+    APPDYNAMICS_CONTROLLER_PORT: "443"
+    APPDYNAMICS_CONTROLLER_SSL_ENABLED: "true"
+    APPDYNAMICS_JAVA_AGENT_REUSE_NODE_NAME: "true"
+    APPDYNAMICS_JAVA_AGENT_REUSE_NODE_NAME_PREFIX: "searchService"
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: search
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: search
+  template:
+    metadata:
+      labels:
+        app: search
+        version: "1"
+    spec:
+      containers:
+      - name: search
+        command: ["/bin/sh"]
+        args: ["-c", "java -javaagent:/opt/appdynamics/javaagent.jar -jar /fso-search-server.jar 5051 ./offers-hc.json"] 
+        env:
+        - name: APPDYNAMICS_AGENT_ACCOUNT_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: appd-agent-secret
+              key: access-key
+        - name: APPDYNAMICS_AGENT_TIER_NAME
+          value: searchService
+        envFrom:
+        - configMapRef:
+            name: hc-search-java-config
+        image: sgioia/fso-hc-search:1
+        imagePullPolicy: Always
+        volumeMounts:
+          - name: appd-agent-repo
+            mountPath: /opt/appdynamics
+        ports:
+        - containerPort: 5001
+      initContainers:
+      - command:
+        - cp
+        - -r
+        - /opt/appdynamics/.
+        - /opt/temp
+        name: appd-agent
+        image: docker.io/appdynamics/java-agent:22.3.0
+        volumeMounts:
+        - name: appd-agent-repo
+          mountPath: /opt/temp
+      volumes:
+        - name: appd-agent-repo
+          emptyDir: {}
+
+
